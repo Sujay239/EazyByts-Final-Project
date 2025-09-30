@@ -1,108 +1,109 @@
 # News Aggregator
 
-Short, focused README for the News Aggregator project. This document describes the project purpose, architecture, setup, configuration, how to run and test, and deployment notes.
+Short, focused README for the News Aggregator Spring Boot project. This document describes purpose, architecture, setup, configuration, running, testing, and deployment notes for a Java Spring Boot application.
 
 ## Overview
 
-News Aggregator collects articles from multiple sources, normalizes content, stores results, and serves them via an API and/or web UI. It handles deduplication, caching, rate limits, and source-specific parsing.
+News Aggregator collects articles from multiple sources, normalizes content, stores results, and serves them via a Spring Boot REST API. It handles deduplication, caching, rate limits, and source-specific parsing.
 
-## Key Features
+## Tech stack
 
-- Fetch articles from multiple sources (RSS, APIs, scrapers)
-- Normalize and deduplicate articles
-- Persist articles in a database
-- Serve via REST API (and optional UI)
-- Cache results for performance and to respect source rate limits
-- Extensible source adapters
-
-## Architecture (high level)
-
-- Fetcher(s): scheduled workers that pull from sources
-- Normalizer: converts source-specific fields to a common model
-- Storage: database for articles, metadata, and fetch history
-- API: exposes search/list/detail endpoints
-- Cache layer: in-memory or Redis to reduce load and rate-limit calls
-- Optional UI: web frontend for browsing articles
+- Java 11+ (or your project's Java version)
+- Spring Boot (Web, Data JPA, Scheduling)
+- Database: Postgres/MySQL/SQLite (dev)
+- Optional: Redis for caching
+- Build: Maven or Gradle
+- Docker (optional)
 
 ## Prerequisites
 
-- Git
-- Node.js (>= 14) or Python (>= 3.8) depending on implementation, or Docker
-- A database (Postgres/MySQL/SQLite for dev)
-- Redis (optional, for caching)
-- API keys for any paid news APIs you intend to use (optional)
+- Java JDK 11+
+- Maven (or use the included mvnw) or Gradle (or the included gradlew)
+- A database (Postgres recommended)
+- Redis (optional)
+- API keys for upstream news APIs (configured via application.properties or environment variables)
 
 ## Quick start (local)
 
 1. Clone repository
    - git clone <repo-url>
-2. Install dependencies
-   - Node: npm install
-   - Python: pip install -r requirements.txt
-3. Configure environment variables (see below)
-4. Run database migrations (if applicable)
-   - Example: npm run migrate OR alembic upgrade head
-5. Start app
-   - Node: npm start
-   - Python: python -m app
+2. Configure environment (see Configuration)
+3. Build
+   - With Maven: ./mvnw clean package
+   - With Gradle: ./gradlew build
+4. Run
+   - With Maven: ./mvnw spring-boot:run
+   - Or run the jar: java -jar target/\*.jar
 
-## Quick start (Docker)
+## Configuration
 
-1. Build images:
+Spring Boot uses application.properties / application.yml. Common properties (examples):
+
+- server.port=8080
+- spring.datasource.url=jdbc:postgresql://localhost:5432/newsdb
+- spring.datasource.username=dbuser
+- spring.datasource.password=secret
+- spring.jpa.hibernate.ddl-auto=update
+- news.api.key=YOUR_NEWSAPI_KEY
+- spring.redis.host=localhost
+- spring.redis.port=6379
+
+Sensitive values can be set via environment variables (e.g., NEWS_API_KEY).
+
+## Running with Docker
+
+1. Build the image:
    - docker build -t news-aggregator .
-2. Run with docker-compose (if provided):
-   - docker-compose up --build
-3. Open the API at http://localhost:PORT
+2. Run (example with env vars):
+   - docker run -e SPRING_DATASOURCE_URL=jdbc:postgresql://... -e NEWS_API_KEY=... -p 8080:8080 news-aggregator
 
-## Configuration / Environment variables
+If a docker-compose.yml is provided, use docker-compose up --build.
 
-Common environment variables (adjust to your project):
+## Scheduling & Fetching
 
-- PORT=3000
-- DATABASE_URL=postgres://user:pass@localhost:5432/newsdb
-- REDIS_URL=redis://localhost:6379
-- NEWS_API_KEY=your_key_here
-- LOG_LEVEL=info
-- FETCH_SCHEDULE=_/15 _ \* \* \* (cron for fetch jobs)
+- Fetch jobs can be scheduled using Spring's @Scheduled on service methods.
+- The project includes a NewsService that calls external NewsAPI and persists articles via Spring Data JPA. Configure rate-limiting and caching (Redis) to avoid hitting upstream limits.
 
-Place these in a .env file (do not commit secrets).
+## Testing
 
-## Running tests
-
-- Unit tests:
-  - Node: npm test
-  - Python: pytest
-- Integration tests:
-  - Configure test DB and run integration suite
-- Linting:
-  - npm run lint or flake8
+- Unit tests: ./mvnw test or ./gradlew test
+- Integration tests: configure a test database (e.g., testcontainers) and run integration suite
+- Linting / static analysis: run your chosen tools (SpotBugs, Checkstyle, etc.)
 
 ## Adding a new source
 
-1. Create a source adapter that:
-   - Fetches raw content (RSS/API/scrape)
-   - Maps raw fields to canonical model (title, summary, content, url, published_at, source_id)
-   - Emits structured articles to normalizer/storage
-2. Add scheduling entry (cron or queue job)
-3. Add tests for parsing and edge cases
-4. Document rate limits and legal/copyright considerations
-
-## Caching & rate limits
-
-- Use Redis or in-process cache for recently fetched responses.
-- Respect upstream rate limits: backoff on 429, queue requests, and serialize heavy scrapes.
-- Store fetch timestamps to avoid unnecessary requests.
-
-## Data model (example)
-
-- Article: id, title, content, summary, url, published_at, source, language, tags
-- Source: id, name, type, endpoint, rate_limit
-- FetchLog: source_id, fetched_at, status, item_count
+1. Implement a source adapter/service that:
+   - Retrieves raw content (RSS/API/scrape)
+   - Maps fields to the canonical Article entity (title, summary, content, url, publishedAt, source)
+   - Persists via repository and includes tests
+2. Register the adapter in scheduled fetch pipeline or as a REST endpoint.
 
 ## Observability
 
-- Logging with structured logs (JSON)
-- Metrics: request rate, error rate, fetch durations, cache hit rate
+- Use structured logs (Spring Boot logging configuration)
+- Expose metrics (Micrometer / Prometheus) for request rate, error rate, fetch durations, cache hit rate
+- Consider tracing (OpenTelemetry) for fetch pipelines
+
+## Troubleshooting
+
+- Check application logs for errors
+- Verify API keys and upstream availability
+- Verify DB connectivity and migrations
+- Re-run a single source fetch in debug to inspect raw payloads
+
+## Contributing
+
+- Fork, branch, open a PR
+- Run tests locally and follow code style
+- Add tests for new adapters or behavior changes
+- Document architecture or API changes
+
+## License
+
+Add your project license (e.g., MIT) and include a LICENSE file in repo root.
+
+(End of README)
+
 - Tracing (optional) for fetch pipelines
 
 ## Deployment notes
